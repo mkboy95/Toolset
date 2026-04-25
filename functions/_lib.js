@@ -50,7 +50,6 @@ const DEFAULT_DATA = {
 async function getData(env) {
   let data = DEFAULT_DATA;
   try {
-    // 尝试从 KV 获取
     const kv = getKV(env);
     if (kv) {
       const storedData = await kv.get("site_data");
@@ -65,53 +64,29 @@ async function getData(env) {
 
 function getKV(env) {
   if (!env) return null;
-  
-  // 尝试标准 KV 绑定
   if (env.my_kv) return env.my_kv;
   if (env.DB) return env.DB;
-  
-  // 尝试 EdgeOne 可能的其他注入方式
-  if (env.KV) return env.KV;
-  if (env.kv) return env.kv;
-  if (env.TOOLS_KV) return env.TOOLS_KV;
-  
-  // 扫描所有可能的 KV 实例
   const keys = Object.keys(env);
   for (const key of keys) {
     const val = env[key];
-    if (val && typeof val === 'object') {
-      // 检查是否有 KV 特征方法
-      if (typeof val.get === 'function' && typeof val.put === 'function') {
-        console.log('Found KV at:', key);
-        return val;
-      }
+    if (val && typeof val === 'object' && typeof val.get === 'function' && typeof val.put === 'function') {
+      return val;
     }
   }
-  
-  console.log('No KV found');
   return null;
 }
 
 async function saveData(env, jsonStr) {
   const kv = getKV(env);
-  
-  if (kv) {
-    try {
-      await kv.put("site_data", jsonStr);
-      console.log('KV save success');
-      return "保存成功（KV 存储）";
-    } catch (e) {
-      console.log('KV save failed:', e.message);
-      return "保存成功（本地存储，刷新后生效）";
-    }
-  } else {
-    // 没有 KV 时，数据会通过前端 localStorage 管理
-    return "保存成功（本地存储，刷新后生效）";
+  if (!kv) {
+    const envKeys = env ? Object.keys(env).join(', ') : 'env is null';
+    throw new Error("KV 存储未配置。env 中的键: [" + envKeys + "]。请在 EdgeOne 控制台绑定 KV 命名空间（变量名: my_kv），然后重新部署项目。");
   }
+  await kv.put("site_data", jsonStr);
 }
 
 function renderNav(categories, activeCategory) {
-  let items = '';
+  let items = `<a href="/" class="px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap shrink-0 ${(!activeCategory || activeCategory === 'all') ? 'text-blue-600 bg-blue-50' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'}">全部</a>`;
   if (categories && categories.length) {
     categories.forEach(cat => {
       const href = cat.type === 'prompts' ? '/prompts' : `/?cat=${cat.id}`;
@@ -125,47 +100,6 @@ function renderNav(categories, activeCategory) {
 
 function getHTML(content, title = "我的工具箱", script = "", activeCategory = "", categories = []) {
   const navItems = renderNav(categories, activeCategory);
-  const globalScript = `
-    <script>
-      // 从 localStorage 加载数据并更新页面
-      async function loadLocalData() {
-        try {
-          const localDataStr = localStorage.getItem('site_data');
-          if (localDataStr) {
-            const localData = JSON.parse(localDataStr);
-            
-            // 更新导航栏
-            const navContainer = document.querySelector('nav .max-w-5xl');
-            if (navContainer) {
-              const navItems = navContainer.querySelector('div[nav-items]');
-              if (navItems) {
-                // 重新生成导航
-                let items = '<a href="/" class="px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap shrink-0 ' + (${!activeCategory || activeCategory === 'all' ? '"text-blue-600 bg-blue-50"' : '"text-slate-500 hover:text-blue-600 hover:bg-blue-50"'}) + '">全部</a>';
-                if (localData.categories && localData.categories.length) {
-                  localData.categories.forEach(cat => {
-                    const href = cat.type === 'prompts' ? '/prompts' : '/?cat=' + cat.id;
-                    const isActive = '${activeCategory}' === cat.id;
-                    const cls = isActive ? 'text-blue-600 bg-blue-50' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50';
-                    items += '<a href="' + href + '" class="px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap shrink-0 ' + cls + '">' + cat.icon + ' ' + cat.name + '</a>';
-                  });
-                }
-                navItems.innerHTML = items;
-              }
-            }
-          }
-        } catch (e) {
-          console.log('Load local data error:', e.message);
-        }
-      }
-      
-      // 页面加载后执行
-      window.addEventListener('DOMContentLoaded', loadLocalData);
-    </script>
-  `;
-  
-  // 为导航栏添加容器标记
-  const navWithContainer = navItems.replace('</a>', '</a><div nav-items style="display: flex; gap: 1px;"></div>');
-  
   return `
   <!DOCTYPE html>
   <html lang="zh-CN">
@@ -187,14 +121,14 @@ function getHTML(content, title = "我的工具箱", script = "", activeCategory
     <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200">
       <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-1 nav-scroll overflow-x-auto">
         <a href="/" class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 mr-3 shrink-0">🛠️ MyTools</a>
-        ${navWithContainer}
+        ${navItems}
       </div>
     </nav>
     <main class="flex-grow">${content}</main>
     <footer class="bg-white border-t border-slate-200 py-8 mt-12 text-center text-sm text-slate-500">
       <p>&copy; ${new Date().getFullYear()} My Tools Studio.</p>
     </footer>
-    ${script}${globalScript}
+    ${script}
   </body>
   </html>`;
 }
@@ -227,15 +161,15 @@ function renderHomePage(data, category = "all") {
   const cards = products.map(p => {
     const mainHref = p.embed ? `/${p.id}` : `/product/${p.id}`;
     const mainText = p.embed ? '🚀 立即使用' : '了解详情';
-    const detailBtn = p.embed ? `<a href="/product/${p.id}" class="text-xs text-slate-400 hover:text-blue-600 transition-colors py-2.5 px-2">详情</a>` : '';
+    const detailBtn = p.embed ? `<a href="/product/${p.id}" class="text-xs text-slate-500 hover:text-blue-600 transition-colors px-3 py-2 whitespace-nowrap">详情</a>` : '';
     return `
     <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md border border-slate-100 flex flex-col transition-all">
       <div class="text-4xl mb-4">${p.icon}</div>
       <h3 class="text-xl font-bold mb-2 text-slate-900">${p.name}</h3>
       <p class="text-slate-600 mb-6 flex-grow text-sm leading-relaxed">${p.desc}</p>
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-2">
         ${detailBtn}
-        <a href="${mainHref}" class="flex-1 text-center bg-slate-50 text-blue-600 font-semibold py-2.5 rounded-lg hover:bg-blue-100 border border-slate-200 transition-colors">${mainText}</a>
+        <a href="${mainHref}" class="flex-1 text-center bg-slate-50 text-blue-600 font-medium py-2 rounded-lg hover:bg-blue-100 border border-slate-200 transition-colors text-sm">${mainText}</a>
       </div>
     </div>`;
   }).join('');
@@ -356,7 +290,6 @@ function renderAdminUI(dataJson, password) {
         <div class="w-full md:w-48 bg-gray-50 border-r border-gray-200 flex flex-row md:flex-col">
             <button @click="currentTab = 'products'" :class="{'bg-blue-50 text-blue-600 border-b-2 md:border-b-0 md:border-r-2 border-blue-600': currentTab === 'products'}" class="flex-1 md:flex-none p-4 text-left font-semibold hover:bg-gray-100 transition">📦 工具管理</button>
             <button @click="currentTab = 'prompts'" :class="{'bg-blue-50 text-blue-600 border-b-2 md:border-b-0 md:border-r-2 border-blue-600': currentTab === 'prompts'}" class="flex-1 md:flex-none p-4 text-left font-semibold hover:bg-gray-100 transition">💡 提示词管理</button>
-            <button @click="currentTab = 'categories'" :class="{'bg-blue-50 text-blue-600 border-b-2 md:border-b-0 md:border-r-2 border-blue-600': currentTab === 'categories'}" class="flex-1 md:flex-none p-4 text-left font-semibold hover:bg-gray-100 transition">🏷️ 分类管理</button>
         </div>
 
         <div class="flex-1 p-6 relative">
@@ -408,26 +341,6 @@ function renderAdminUI(dataJson, password) {
                 </div>
                 <button @click="addNew('prompt')" class="mt-6 w-full py-3 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-blue-500 hover:text-blue-500 font-bold transition">+ 添加新提示词</button>
             </div>
-
-            <div v-if="currentTab === 'categories'">
-                <h2 class="text-xl font-bold mb-6">分类列表 ({{ data.categories.length }})</h2>
-                <div class="grid gap-4">
-                    <div v-for="(item, index) in data.categories" :key="index" class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition bg-gray-50 flex justify-between items-center">
-                        <div class="flex items-center gap-3">
-                            <span class="text-2xl">{{ item.icon }}</span>
-                            <div>
-                                <h3 class="font-bold">{{ item.name }}</h3>
-                                <p class="text-xs text-gray-400">ID: {{ item.id }} · 类型: {{ item.type === 'prompts' ? '提示词' : '工具' }}</p>
-                            </div>
-                        </div>
-                        <div class="flex gap-2">
-                            <button @click="editCategory(index)" class="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded">编辑</button>
-                            <button @click="deleteItem('categories', index)" class="text-red-500 hover:bg-red-50 px-3 py-1 rounded">删除</button>
-                        </div>
-                    </div>
-                </div>
-                <button @click="addCategory" class="mt-6 w-full py-3 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-blue-500 hover:text-blue-500 font-bold transition">+ 添加新分类</button>
-            </div>
         </div>
       </div>
 
@@ -468,22 +381,6 @@ function renderAdminUI(dataJson, password) {
                 <div><label class="block text-sm font-bold text-gray-700">提示词内容</label><textarea v-model="editingItem.content" rows="10" class="w-full border p-2 rounded font-mono text-sm bg-slate-50"></textarea></div>
             </div>
 
-            <div v-if="editType === 'category'" class="space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-sm font-bold text-gray-700">分类名称</label><input v-model="editingItem.name" class="w-full border p-2 rounded"></div>
-                    <div><label class="block text-sm font-bold text-gray-700">分类ID (英文唯一标识)</label><input v-model="editingItem.id" class="w-full border p-2 rounded" placeholder="如: my-tools"></div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-sm font-bold text-gray-700">图标 (Emoji)</label><input v-model="editingItem.icon" class="w-full border p-2 rounded" placeholder="如: 📦"></div>
-                    <div><label class="block text-sm font-bold text-gray-700">类型</label>
-                        <select v-model="editingItem.type" class="w-full border p-2 rounded">
-                            <option value="products">工具类</option>
-                            <option value="prompts">提示词类</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
             <div class="mt-8 flex justify-end gap-4">
                 <button @click="editingItem = null" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">取消</button>
                 <button @click="confirmEdit" class="px-6 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700">确定</button>
@@ -500,19 +397,8 @@ function renderAdminUI(dataJson, password) {
 
       createApp({
         data() {
-          // 优先从 localStorage 读取数据
-          let localData = null;
-          try {
-            const localDataStr = localStorage.getItem('site_data');
-            if (localDataStr) {
-              localData = JSON.parse(localDataStr);
-            }
-          } catch (e) {
-            console.log('LocalStorage error:', e.message);
-          }
-          
           return {
-            data: localData || RAW_DATA,
+            data: RAW_DATA,
             currentTab: 'products',
             editingItem: null,
             editType: null,
@@ -546,16 +432,6 @@ function renderAdminUI(dataJson, password) {
                 this.tagsInput = this.editingItem.tags.join(', ');
             }
           },
-          addCategory() {
-            this.editType = 'category';
-            this.editIndex = -1;
-            this.editingItem = { id: 'new-cat-'+Date.now(), name: '新分类', icon: '📁', type: 'products' };
-          },
-          editCategory(index) {
-            this.editType = 'category';
-            this.editIndex = index;
-            this.editingItem = JSON.parse(JSON.stringify(this.data.categories[index]));
-          },
           updateTags() {
             this.editingItem.tags = this.tagsInput.split(/[,，]/).map(t => t.trim()).filter(t => t);
           },
@@ -566,9 +442,6 @@ function renderAdminUI(dataJson, password) {
             } else if (this.editType === 'prompt') {
                 if (this.editIndex === -1) this.data.prompts.push(this.editingItem);
                 else this.data.prompts[this.editIndex] = this.editingItem;
-            } else if (this.editType === 'category') {
-                if (this.editIndex === -1) this.data.categories.push(this.editingItem);
-                else this.data.categories[this.editIndex] = this.editingItem;
             }
             this.editingItem = null;
           },
@@ -580,24 +453,17 @@ function renderAdminUI(dataJson, password) {
           async saveData() {
             this.isSaving = true;
             try {
-                const jsonData = JSON.stringify(this.data);
-                
-                // 先尝试保存到后端（KV）
                 const formData = new FormData();
                 formData.append('password', PASSWORD);
-                formData.append('jsonData', jsonData);
+                formData.append('jsonData', JSON.stringify(this.data));
 
                 const res = await fetch('/admin', { method: 'POST', body: formData });
                 const text = await res.text();
 
-                // 同时保存到本地存储，确保数据不会丢失
-                localStorage.setItem('site_data', jsonData);
-                
-                alert('✅ ' + text);
+                if (text.includes('成功')) alert('✅ 保存成功！');
+                else alert('❌ 保存失败：' + text);
             } catch(e) {
-                // 网络错误时，只保存到本地存储
-                localStorage.setItem('site_data', JSON.stringify(this.data));
-                alert('✅ 保存成功（本地存储，刷新后生效）');
+                alert('❌ 网络错误：' + e.message);
             }
             this.isSaving = false;
           }
