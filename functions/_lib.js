@@ -50,7 +50,7 @@ const DEFAULT_DATA = {
 async function getData(env) {
   let data = DEFAULT_DATA;
   try {
-    const kv = env && (env.my_kv || env.DB);
+    const kv = getKV(env);
     if (kv) {
       const storedData = await kv.get("site_data");
       if (storedData) {
@@ -58,14 +58,29 @@ async function getData(env) {
         if (!data.categories) data.categories = DEFAULT_DATA.categories;
       }
     }
-  } catch (e) { console.log("Init Data"); }
+  } catch (e) { console.log("Init Data", e.message); }
   return data;
 }
 
+function getKV(env) {
+  if (!env) return null;
+  if (env.my_kv) return env.my_kv;
+  if (env.DB) return env.DB;
+  const keys = Object.keys(env);
+  for (const key of keys) {
+    const val = env[key];
+    if (val && typeof val === 'object' && typeof val.get === 'function' && typeof val.put === 'function') {
+      return val;
+    }
+  }
+  return null;
+}
+
 async function saveData(env, jsonStr) {
-  const kv = env && (env.my_kv || env.DB);
+  const kv = getKV(env);
   if (!kv) {
-    throw new Error("KV 存储未配置，请在 EdgeOne 控制台绑定 KV 命名空间（变量名: my_kv）");
+    const envKeys = env ? Object.keys(env).join(', ') : 'env is null';
+    throw new Error("KV 存储未配置。env 中的键: [" + envKeys + "]。请在 EdgeOne 控制台绑定 KV 命名空间（变量名: my_kv），然后重新部署项目。");
   }
   await kv.put("site_data", jsonStr);
 }
@@ -144,13 +159,18 @@ function renderHomePage(data, category = "all") {
   }
 
   const cards = products.map(p => {
-    const linkHref = p.embed ? `/${p.id}` : `/product/${p.id}`;
+    const mainHref = p.embed ? `/${p.id}` : `/product/${p.id}`;
+    const mainText = p.embed ? '🚀 立即使用' : '了解详情';
+    const detailBtn = p.embed ? `<a href="/product/${p.id}" class="text-xs text-slate-400 hover:text-blue-600 transition-colors py-2.5 px-2">详情</a>` : '';
     return `
     <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md border border-slate-100 flex flex-col transition-all">
       <div class="text-4xl mb-4">${p.icon}</div>
       <h3 class="text-xl font-bold mb-2 text-slate-900">${p.name}</h3>
       <p class="text-slate-600 mb-6 flex-grow text-sm leading-relaxed">${p.desc}</p>
-      <a href="${linkHref}" class="text-center bg-slate-50 text-blue-600 font-semibold py-2.5 rounded-lg hover:bg-blue-100 border border-slate-200 transition-colors">${p.embed ? '🚀 立即使用' : '了解详情'}</a>
+      <div class="flex items-center gap-1">
+        ${detailBtn}
+        <a href="${mainHref}" class="flex-1 text-center bg-slate-50 text-blue-600 font-semibold py-2.5 rounded-lg hover:bg-blue-100 border border-slate-200 transition-colors">${mainText}</a>
+      </div>
     </div>`;
   }).join('');
 
@@ -170,13 +190,14 @@ function renderProductPage(data, id) {
   const catId = product.category || '';
   const ctaHref = product.embed ? `/${product.id}` : product.link;
   const ctaTarget = product.embed ? '' : ' target="_blank"';
+  const ctaStyle = product.embed ? 'block w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-transform hover:-translate-y-0.5' : 'block w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-transform hover:-translate-y-0.5';
   return getHTML(`
     <div class="max-w-3xl mx-auto px-4 py-16">
       <a href="/" class="text-sm text-slate-500 hover:text-blue-600 mb-6 inline-block">&larr; 返回列表</a>
       <div class="bg-white p-8 rounded-2xl shadow-lg border border-slate-100">
         <div class="flex items-center mb-6"><span class="text-6xl mr-6">${product.icon}</span><h1 class="text-3xl font-bold">${product.name}</h1></div>
         <div class="prose max-w-none text-slate-600 mb-8 whitespace-pre-line"><p class="text-lg text-slate-800 font-medium">${product.desc}</p><hr class="my-4 border-slate-100"><p>${product.detail}</p></div>
-        <a href="${ctaHref}"${ctaTarget} class="block w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-transform hover:-translate-y-0.5">${product.cta}</a>
+        <a href="${ctaHref}"${ctaTarget} class="${ctaStyle}">${product.cta}</a>
       </div>
     </div>
   `, `${product.name} - 详情`, "", catId, categories);
@@ -504,4 +525,4 @@ function renderAdminUI(dataJson, password) {
   `;
 }
 
-export { DEFAULT_DATA, getData, saveData, getHTML, renderNav, renderHomePage, renderProductPage, renderEmbedPage, renderPromptsPage, renderAdminUI };
+export { DEFAULT_DATA, getData, getKV, saveData, getHTML, renderNav, renderHomePage, renderProductPage, renderEmbedPage, renderPromptsPage, renderAdminUI };
