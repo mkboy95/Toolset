@@ -1,17 +1,46 @@
 const DEFAULT_DATA = {
-  products: [{
-    id: "demo",
-    name: "示例工具",
-    desc: "这是一个示例，请去后台修改。",
-    icon: "👋",
-    detail: "详细介绍内容...",
-    link: "#",
-    cta: "按钮文字"
-  }],
+  categories: [
+    { id: "tools", name: "工具箱", icon: "📦", type: "products" },
+    { id: "prompts", name: "提示词", icon: "💡", type: "prompts" },
+    { id: "covers", name: "封面工具", icon: "🎨", type: "products" }
+  ],
+  products: [
+    {
+      id: "mini-cover",
+      name: "Mini-Cover 封面生成器",
+      desc: "简洁的在线生成封面网站，专为博客、短视频、社交媒体等生成个性化封面。",
+      icon: "🎨",
+      detail: "Mini-Cover 是一个现代化的封面生成工具，专为博客、短视频、社交媒体设计。支持多种自定义选项，让你轻松创建个性化封面图片。\n\n✨ 特性：\n- 📱 响应式设计，完美支持移动端\n- 🎨 丰富的图标库，一键选用\n- 🖼️ 自定义背景图片，支持拖拽上传\n- ✍️ 灵活的标题编辑，多种字体可选\n- 💫 水印效果调整，实时预览\n- 🎯 简洁的操作界面，快速上手\n\n🔗 项目地址：https://github.com/mkboy95/Mini-Cover",
+      link: "https://cover.bsgun.cn/",
+      cta: "立即使用",
+      category: "covers"
+    },
+    {
+      id: "thiscover",
+      name: "ThisCover 封面生成器",
+      desc: "免费、漂亮的封面生成器，支持个性主题、20w+图标、23+免费字体、实时预览。",
+      icon: "🖼️",
+      detail: "ThisCover 是一个免费、漂亮的封面生成器，支持全生命周期功能。\n\n✨ 特性：\n- 🎨 个性主题：简洁、现代、经典、背景、手机预览等多个主题\n- 🔢 20w+ 图标库\n- 📝 23+ 免费字体\n- 👁️ 实时预览：配置即改即变，所见即所得\n- 📐 9+ 主流尺寸，横板+竖版\n- 📱 小红书、头条、知乎等多平台适配\n- 💾 PNG、JPG、WebP 多格式输出\n- 📤 一键复制",
+      link: "https://cover.202597.xyz/",
+      cta: "立即使用",
+      category: "covers"
+    },
+    {
+      id: "demo",
+      name: "示例工具",
+      desc: "这是一个示例，请去后台修改。",
+      icon: "👋",
+      detail: "详细介绍内容...",
+      link: "#",
+      cta: "按钮文字",
+      category: "tools"
+    }
+  ],
   prompts: [{
     title: "示例提示词",
     tags: ["测试"],
-    content: "这是一个示例提示词。"
+    content: "这是一个示例提示词。",
+    category: "prompts"
   }]
 };
 
@@ -21,13 +50,30 @@ async function getData(env) {
     const kv = env.my_kv;
     if (kv) {
       const storedData = await kv.get("site_data");
-      if (storedData) data = JSON.parse(storedData);
+      if (storedData) {
+        data = JSON.parse(storedData);
+        if (!data.categories) data.categories = DEFAULT_DATA.categories;
+      }
     }
   } catch (e) { console.log("Init Data"); }
   return data;
 }
 
-function getHTML(content, title = "我的工具箱", script = "") {
+function renderNav(categories, activeCategory) {
+  let items = `<a href="/" class="px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap shrink-0 ${(!activeCategory || activeCategory === 'all') ? 'text-blue-600 bg-blue-50' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'}">全部</a>`;
+  if (categories && categories.length) {
+    categories.forEach(cat => {
+      const href = cat.type === 'prompts' ? '/prompts' : `/?cat=${cat.id}`;
+      const isActive = activeCategory === cat.id;
+      const cls = isActive ? 'text-blue-600 bg-blue-50' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50';
+      items += `<a href="${href}" class="px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap shrink-0 ${cls}">${cat.icon} ${cat.name}</a>`;
+    });
+  }
+  return items;
+}
+
+function getHTML(content, title = "我的工具箱", script = "", activeCategory = "", categories = []) {
+  const navItems = renderNav(categories, activeCategory);
   return `
   <!DOCTYPE html>
   <html lang="zh-CN">
@@ -41,16 +87,15 @@ function getHTML(content, title = "我的工具箱", script = "") {
       textarea::-webkit-scrollbar { width: 8px; }
       textarea::-webkit-scrollbar-track { background: #f1f1f1; }
       textarea::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+      .nav-scroll::-webkit-scrollbar { display: none; }
+      .nav-scroll { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
   </head>
   <body class="bg-slate-50 text-slate-800 flex flex-col min-h-screen">
     <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200">
-      <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
-        <a href="/" class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">🛠️ MyTools</a>
-        <div class="flex gap-4 text-sm font-medium">
-          <a href="/" class="text-slate-600 hover:text-blue-600">工具箱</a>
-          <a href="/prompts" class="text-slate-600 hover:text-blue-600">提示词</a>
-        </div>
+      <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-1 nav-scroll overflow-x-auto">
+        <a href="/" class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 mr-3 shrink-0">🛠️ MyTools</a>
+        ${navItems}
       </div>
     </nav>
     <main class="flex-grow">${content}</main>
@@ -62,7 +107,31 @@ function getHTML(content, title = "我的工具箱", script = "") {
   </html>`;
 }
 
-function renderHomePage(products) {
+function renderHomePage(data, category = "all") {
+  const categories = data.categories || [];
+  let products = data.products || [];
+  if (category && category !== "all") {
+    products = products.filter(p => p.category === category);
+  }
+
+  let catTabs = `<a href="/" class="px-4 py-2 rounded-full text-sm font-medium transition ${(!category || category === 'all') ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-blue-50 border border-slate-200'}">全部</a>`;
+  categories.forEach(cat => {
+    if (cat.type === 'prompts') return;
+    const isActive = category === cat.id;
+    const cls = isActive ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-blue-50 border border-slate-200';
+    catTabs += `<a href="/?cat=${cat.id}" class="px-4 py-2 rounded-full text-sm font-medium transition ${cls}">${cat.icon} ${cat.name}</a>`;
+  });
+
+  if (products.length === 0) {
+    const emptyContent = `
+      <div class="max-w-5xl mx-auto px-4 py-16">
+        <div class="text-center mb-8"><h1 class="text-4xl font-extrabold text-slate-900">发现好用的效率工具</h1></div>
+        <div class="flex gap-2 mb-8 justify-center flex-wrap">${catTabs}</div>
+        <div class="text-center py-16 text-slate-400"><p class="text-lg">该分类暂无内容</p></div>
+      </div>`;
+    return getHTML(emptyContent, "首页", "", category, categories);
+  }
+
   const cards = products.map(p => `
     <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md border border-slate-100 flex flex-col transition-all">
       <div class="text-4xl mb-4">${p.icon}</div>
@@ -71,17 +140,21 @@ function renderHomePage(products) {
       <a href="/product/${p.id}" class="text-center bg-slate-50 text-blue-600 font-semibold py-2.5 rounded-lg hover:bg-blue-100 border border-slate-200 transition-colors">了解详情</a>
     </div>
   `).join('');
-  return getHTML(`
+
+  const content = `
     <div class="max-w-5xl mx-auto px-4 py-16">
-      <div class="text-center mb-12"><h1 class="text-4xl font-extrabold text-slate-900">发现好用的效率工具</h1></div>
+      <div class="text-center mb-8"><h1 class="text-4xl font-extrabold text-slate-900">发现好用的效率工具</h1></div>
+      <div class="flex gap-2 mb-10 justify-center flex-wrap">${catTabs}</div>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${cards}</div>
-    </div>
-  `, "首页");
+    </div>`;
+  return getHTML(content, "首页", "", category, categories);
 }
 
-function renderProductPage(products, id) {
-  const product = products.find(p => p.id === id);
+function renderProductPage(data, id) {
+  const categories = data.categories || [];
+  const product = data.products.find(p => p.id === id);
   if (!product) return null;
+  const catId = product.category || '';
   return getHTML(`
     <div class="max-w-3xl mx-auto px-4 py-16">
       <a href="/" class="text-sm text-slate-500 hover:text-blue-600 mb-6 inline-block">&larr; 返回列表</a>
@@ -91,10 +164,12 @@ function renderProductPage(products, id) {
         <a href="${product.link}" target="_blank" class="block w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-transform hover:-translate-y-0.5">${product.cta}</a>
       </div>
     </div>
-  `, `${product.name} - 详情`);
+  `, `${product.name} - 详情`, "", catId, categories);
 }
 
-function renderPromptsPage(prompts) {
+function renderPromptsPage(data) {
+  const categories = data.categories || [];
+  const prompts = data.prompts || [];
   const items = prompts.map((item, i) => `
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
       <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-start">
@@ -110,7 +185,7 @@ function renderPromptsPage(prompts) {
       navigator.clipboard.writeText(el.value).then(()=>{ let t=btn.innerHTML; btn.innerHTML='✅ 已复制'; setTimeout(()=>btn.innerHTML=t, 2000); });
     }
   </script>`;
-  return getHTML(`<div class="max-w-5xl mx-auto px-4 py-12"><div class="mb-10"><h1 class="text-3xl font-bold text-slate-900">✨ 提示词收藏夹</h1></div><div class="grid md:grid-cols-2 gap-6">${items}</div></div>`, "提示词库", script);
+  return getHTML(`<div class="max-w-5xl mx-auto px-4 py-12"><div class="mb-10"><h1 class="text-3xl font-bold text-slate-900">✨ 提示词收藏夹</h1></div><div class="grid md:grid-cols-2 gap-6">${items}</div></div>`, "提示词库", script, "prompts", categories);
 }
 
 function renderAdminUI(dataJson, password) {
@@ -142,6 +217,7 @@ function renderAdminUI(dataJson, password) {
         <div class="w-full md:w-48 bg-gray-50 border-r border-gray-200 flex flex-row md:flex-col">
             <button @click="currentTab = 'products'" :class="{'bg-blue-50 text-blue-600 border-b-2 md:border-b-0 md:border-r-2 border-blue-600': currentTab === 'products'}" class="flex-1 md:flex-none p-4 text-left font-semibold hover:bg-gray-100 transition">📦 工具管理</button>
             <button @click="currentTab = 'prompts'" :class="{'bg-blue-50 text-blue-600 border-b-2 md:border-b-0 md:border-r-2 border-blue-600': currentTab === 'prompts'}" class="flex-1 md:flex-none p-4 text-left font-semibold hover:bg-gray-100 transition">💡 提示词管理</button>
+            <button @click="currentTab = 'categories'" :class="{'bg-blue-50 text-blue-600 border-b-2 md:border-b-0 md:border-r-2 border-blue-600': currentTab === 'categories'}" class="flex-1 md:flex-none p-4 text-left font-semibold hover:bg-gray-100 transition">🏷️ 分类管理</button>
         </div>
 
         <div class="flex-1 p-6 relative">
@@ -162,6 +238,7 @@ function renderAdminUI(dataJson, password) {
                             <div>
                                 <h3 class="font-bold">{{ item.name }}</h3>
                                 <p class="text-xs text-gray-500 truncate w-64">{{ item.desc }}</p>
+                                <span v-if="item.category" class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded mt-1 inline-block">{{ getCategoryName(item.category) }}</span>
                             </div>
                         </div>
                         <div class="flex gap-2">
@@ -189,6 +266,26 @@ function renderAdminUI(dataJson, password) {
                 </div>
                 <button @click="addNew('prompt')" class="mt-6 w-full py-3 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-blue-500 hover:text-blue-500 font-bold transition">+ 添加新提示词</button>
             </div>
+
+            <div v-if="currentTab === 'categories'">
+                <h2 class="text-xl font-bold mb-6">分类列表 ({{ data.categories.length }})</h2>
+                <div class="grid gap-4">
+                    <div v-for="(item, index) in data.categories" :key="index" class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition bg-gray-50 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">{{ item.icon }}</span>
+                            <div>
+                                <h3 class="font-bold">{{ item.name }}</h3>
+                                <p class="text-xs text-gray-400">ID: {{ item.id }} · 类型: {{ item.type === 'prompts' ? '提示词' : '工具' }}</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button @click="editCategory(index)" class="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded">编辑</button>
+                            <button @click="deleteItem('categories', index)" class="text-red-500 hover:bg-red-50 px-3 py-1 rounded">删除</button>
+                        </div>
+                    </div>
+                </div>
+                <button @click="addCategory" class="mt-6 w-full py-3 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-blue-500 hover:text-blue-500 font-bold transition">+ 添加新分类</button>
+            </div>
         </div>
       </div>
 
@@ -203,9 +300,15 @@ function renderAdminUI(dataJson, password) {
                 </div>
                 <div><label class="block text-sm font-bold text-gray-700">图标 (Emoji或HTML)</label><input v-model="editingItem.icon" class="w-full border p-2 rounded"></div>
                 <div><label class="block text-sm font-bold text-gray-700">简短描述</label><input v-model="editingItem.desc" class="w-full border p-2 rounded"></div>
+                <div><label class="block text-sm font-bold text-gray-700">所属分类</label>
+                    <select v-model="editingItem.category" class="w-full border p-2 rounded">
+                        <option value="">未分类</option>
+                        <option v-for="cat in data.categories.filter(c => c.type === 'products')" :key="cat.id" :value="cat.id">{{ cat.icon }} {{ cat.name }}</option>
+                    </select>
+                </div>
                 <div><label class="block text-sm font-bold text-gray-700">详情内容 (支持HTML)</label><textarea v-model="editingItem.detail" rows="5" class="w-full border p-2 rounded"></textarea></div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-sm font-bold text-gray-700">链接 URL</label><input v-model="editingItem.link" class="w-full border p-2 rounded"></div>
+                    <div><label class="block text-sm font-bold text-gray-700">链接 URL</label><input v-model="editingItem.link" class="w-full border p-2 rounded" placeholder="外部链接或 /短路径"></div>
                     <div><label class="block text-sm font-bold text-gray-700">按钮文字</label><input v-model="editingItem.cta" class="w-full border p-2 rounded"></div>
                 </div>
             </div>
@@ -214,6 +317,22 @@ function renderAdminUI(dataJson, password) {
                 <div><label class="block text-sm font-bold text-gray-700">标题</label><input v-model="editingItem.title" class="w-full border p-2 rounded"></div>
                 <div><label class="block text-sm font-bold text-gray-700">标签 (逗号分隔)</label><input v-model="tagsInput" @input="updateTags" placeholder="例如: 写作, 办公" class="w-full border p-2 rounded"></div>
                 <div><label class="block text-sm font-bold text-gray-700">提示词内容</label><textarea v-model="editingItem.content" rows="10" class="w-full border p-2 rounded font-mono text-sm bg-slate-50"></textarea></div>
+            </div>
+
+            <div v-if="editType === 'category'" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-sm font-bold text-gray-700">分类名称</label><input v-model="editingItem.name" class="w-full border p-2 rounded"></div>
+                    <div><label class="block text-sm font-bold text-gray-700">分类ID (英文唯一标识)</label><input v-model="editingItem.id" class="w-full border p-2 rounded" placeholder="如: my-tools"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-sm font-bold text-gray-700">图标 (Emoji)</label><input v-model="editingItem.icon" class="w-full border p-2 rounded" placeholder="如: 📦"></div>
+                    <div><label class="block text-sm font-bold text-gray-700">类型</label>
+                        <select v-model="editingItem.type" class="w-full border p-2 rounded">
+                            <option value="products">工具类</option>
+                            <option value="prompts">提示词类</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
             <div class="mt-8 flex justify-end gap-4">
@@ -243,13 +362,17 @@ function renderAdminUI(dataJson, password) {
           }
         },
         methods: {
+          getCategoryName(catId) {
+            const cat = this.data.categories.find(c => c.id === catId);
+            return cat ? cat.icon + ' ' + cat.name : catId;
+          },
           addNew(type) {
             this.editType = type;
             this.editIndex = -1;
             if (type === 'product') {
-                this.editingItem = { id: 'new-'+Date.now(), name: '新工具', icon: '✨', desc: '', detail: '', link: '#', cta: '访问' };
+                this.editingItem = { id: 'new-'+Date.now(), name: '新工具', icon: '✨', desc: '', detail: '', link: '#', cta: '访问', category: '' };
             } else {
-                this.editingItem = { title: '新提示词', tags: [], content: '' };
+                this.editingItem = { title: '新提示词', tags: [], content: '', category: 'prompts' };
                 this.tagsInput = '';
             }
           },
@@ -258,10 +381,19 @@ function renderAdminUI(dataJson, password) {
             this.editIndex = index;
             const source = type === 'product' ? this.data.products : this.data.prompts;
             this.editingItem = JSON.parse(JSON.stringify(source[index]));
-
             if (type === 'prompt') {
                 this.tagsInput = this.editingItem.tags.join(', ');
             }
+          },
+          addCategory() {
+            this.editType = 'category';
+            this.editIndex = -1;
+            this.editingItem = { id: 'new-cat-'+Date.now(), name: '新分类', icon: '📁', type: 'products' };
+          },
+          editCategory(index) {
+            this.editType = 'category';
+            this.editIndex = index;
+            this.editingItem = JSON.parse(JSON.stringify(this.data.categories[index]));
           },
           updateTags() {
             this.editingItem.tags = this.tagsInput.split(/[,，]/).map(t => t.trim()).filter(t => t);
@@ -270,9 +402,12 @@ function renderAdminUI(dataJson, password) {
             if (this.editType === 'product') {
                 if (this.editIndex === -1) this.data.products.push(this.editingItem);
                 else this.data.products[this.editIndex] = this.editingItem;
-            } else {
+            } else if (this.editType === 'prompt') {
                 if (this.editIndex === -1) this.data.prompts.push(this.editingItem);
                 else this.data.prompts[this.editIndex] = this.editingItem;
+            } else if (this.editType === 'category') {
+                if (this.editIndex === -1) this.data.categories.push(this.editingItem);
+                else this.data.categories[this.editIndex] = this.editingItem;
             }
             this.editingItem = null;
           },
@@ -306,4 +441,4 @@ function renderAdminUI(dataJson, password) {
   `;
 }
 
-export { DEFAULT_DATA, getData, getHTML, renderHomePage, renderProductPage, renderPromptsPage, renderAdminUI };
+export { DEFAULT_DATA, getData, getHTML, renderNav, renderHomePage, renderProductPage, renderPromptsPage, renderAdminUI };

@@ -2,7 +2,7 @@ import { getData, renderProductPage } from '../_lib.js';
 
 export async function onRequestGet({ env, params }) {
   const data = await getData(env);
-  const html = renderProductPage(data.products, params.id);
+  const html = renderProductPage(data, params.id);
   if (!html) {
     return new Response("Product Not Found", { status: 404 });
   }
