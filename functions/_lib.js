@@ -47,16 +47,29 @@ const DEFAULT_DATA = {
   }]
 };
 
+// 内存存储作为后备
+let memoryStore = null;
+
 async function getData(env) {
   let data = DEFAULT_DATA;
   try {
+    // 优先从 KV 获取
     const kv = getKV(env);
     if (kv) {
       const storedData = await kv.get("site_data");
       if (storedData) {
         data = JSON.parse(storedData);
         if (!data.categories) data.categories = DEFAULT_DATA.categories;
+        return data;
       }
+    }
+    
+    // KV 没有数据时，尝试从内存存储获取
+    if (memoryStore) {
+      console.log('Using data from memory store');
+      data = JSON.parse(memoryStore);
+      if (!data.categories) data.categories = DEFAULT_DATA.categories;
+      return data;
     }
   } catch (e) { console.log("Init Data", e.message); }
   return data;
@@ -64,25 +77,52 @@ async function getData(env) {
 
 function getKV(env) {
   if (!env) return null;
+  
+  // 尝试标准 KV 绑定
   if (env.my_kv) return env.my_kv;
   if (env.DB) return env.DB;
+  
+  // 尝试 EdgeOne 可能的其他注入方式
+  if (env.KV) return env.KV;
+  if (env.kv) return env.kv;
+  if (env.TOOLS_KV) return env.TOOLS_KV;
+  
+  // 扫描所有可能的 KV 实例
   const keys = Object.keys(env);
   for (const key of keys) {
     const val = env[key];
-    if (val && typeof val === 'object' && typeof val.get === 'function' && typeof val.put === 'function') {
-      return val;
+    if (val && typeof val === 'object') {
+      // 检查是否有 KV 特征方法
+      if (typeof val.get === 'function' && typeof val.put === 'function') {
+        console.log('Found KV at:', key);
+        return val;
+      }
     }
   }
+  
+  console.log('No KV found, using memory store');
   return null;
 }
 
 async function saveData(env, jsonStr) {
   const kv = getKV(env);
-  if (!kv) {
-    const envKeys = env ? Object.keys(env).join(', ') : 'env is null';
-    throw new Error("KV 存储未配置。env 中的键: [" + envKeys + "]。请在 EdgeOne 控制台绑定 KV 命名空间（变量名: my_kv），然后重新部署项目。");
+  
+  if (kv) {
+    try {
+      await kv.put("site_data", jsonStr);
+      console.log('KV save success');
+      return "保存成功（KV 存储）";
+    } catch (e) {
+      console.log('KV save failed:', e.message);
+      // KV 失败时使用内存存储
+      memoryStore = jsonStr;
+      return "保存成功（内存存储）";
+    }
+  } else {
+    // 没有 KV 时使用内存存储
+    memoryStore = jsonStr;
+    return "保存成功（内存存储，重启后数据会丢失）";
   }
-  await kv.put("site_data", jsonStr);
 }
 
 function renderNav(categories, activeCategory) {

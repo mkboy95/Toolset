@@ -24,8 +24,8 @@ export async function onRequestPost({ env, request }) {
 
   const jsonStr = formData.get("jsonData");
   try {
-    await saveData(env, jsonStr);
-    return new Response("保存成功");
+    const result = await saveData(env, jsonStr);
+    return new Response(result);
   } catch (e) {
     return new Response(e.message, { status: 500 });
   }
