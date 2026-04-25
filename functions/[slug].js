@@ -1,4 +1,4 @@
-import { getData } from './_lib.js';
+import { getData, renderEmbedPage } from './_lib.js';
 
 export async function onRequestGet({ env, params }) {
   const slug = params.slug;
@@ -9,7 +9,13 @@ export async function onRequestGet({ env, params }) {
     return new Response("Not Found", { status: 404 });
   }
 
-  if (product.link && product.link !== "#" && product.link.startsWith("http")) {
+  if (product.embed && product.link) {
+    return new Response(renderEmbedPage(data, slug), {
+      headers: { "Content-Type": "text/html;charset=UTF-8" }
+    });
+  }
+
+  if (product.link && product.link.startsWith("http")) {
     return Response.redirect(product.link, 302);
   }
 

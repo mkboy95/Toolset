@@ -1,4 +1,4 @@
-import { getData, renderAdminUI } from '../_lib.js';
+import { getData, saveData, renderAdminUI } from '../_lib.js';
 
 export async function onRequestGet() {
   return new Response(`
@@ -23,10 +23,10 @@ export async function onRequestPost({ env, request }) {
   }
 
   const jsonStr = formData.get("jsonData");
-  const kv = env.my_kv;
-  if (kv) {
-    await kv.put("site_data", jsonStr);
+  try {
+    await saveData(env, jsonStr);
     return new Response("保存成功");
+  } catch (e) {
+    return new Response(e.message, { status: 500 });
   }
-  return new Response("KV 未配置", { status: 500 });
 }

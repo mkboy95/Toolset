@@ -13,7 +13,8 @@ const DEFAULT_DATA = {
       detail: "Mini-Cover 是一个现代化的封面生成工具，专为博客、短视频、社交媒体设计。支持多种自定义选项，让你轻松创建个性化封面图片。\n\n✨ 特性：\n- 📱 响应式设计，完美支持移动端\n- 🎨 丰富的图标库，一键选用\n- 🖼️ 自定义背景图片，支持拖拽上传\n- ✍️ 灵活的标题编辑，多种字体可选\n- 💫 水印效果调整，实时预览\n- 🎯 简洁的操作界面，快速上手\n\n🔗 项目地址：https://github.com/mkboy95/Mini-Cover",
       link: "https://cover.bsgun.cn/",
       cta: "立即使用",
-      category: "covers"
+      category: "covers",
+      embed: true
     },
     {
       id: "thiscover",
@@ -23,7 +24,8 @@ const DEFAULT_DATA = {
       detail: "ThisCover 是一个免费、漂亮的封面生成器，支持全生命周期功能。\n\n✨ 特性：\n- 🎨 个性主题：简洁、现代、经典、背景、手机预览等多个主题\n- 🔢 20w+ 图标库\n- 📝 23+ 免费字体\n- 👁️ 实时预览：配置即改即变，所见即所得\n- 📐 9+ 主流尺寸，横板+竖版\n- 📱 小红书、头条、知乎等多平台适配\n- 💾 PNG、JPG、WebP 多格式输出\n- 📤 一键复制",
       link: "https://cover.202597.xyz/",
       cta: "立即使用",
-      category: "covers"
+      category: "covers",
+      embed: true
     },
     {
       id: "demo",
@@ -33,7 +35,8 @@ const DEFAULT_DATA = {
       detail: "详细介绍内容...",
       link: "#",
       cta: "按钮文字",
-      category: "tools"
+      category: "tools",
+      embed: false
     }
   ],
   prompts: [{
@@ -47,7 +50,7 @@ const DEFAULT_DATA = {
 async function getData(env) {
   let data = DEFAULT_DATA;
   try {
-    const kv = env.my_kv;
+    const kv = env && (env.my_kv || env.DB);
     if (kv) {
       const storedData = await kv.get("site_data");
       if (storedData) {
@@ -57,6 +60,14 @@ async function getData(env) {
     }
   } catch (e) { console.log("Init Data"); }
   return data;
+}
+
+async function saveData(env, jsonStr) {
+  const kv = env && (env.my_kv || env.DB);
+  if (!kv) {
+    throw new Error("KV 存储未配置，请在 EdgeOne 控制台绑定 KV 命名空间（变量名: my_kv）");
+  }
+  await kv.put("site_data", jsonStr);
 }
 
 function renderNav(categories, activeCategory) {
@@ -132,14 +143,16 @@ function renderHomePage(data, category = "all") {
     return getHTML(emptyContent, "首页", "", category, categories);
   }
 
-  const cards = products.map(p => `
+  const cards = products.map(p => {
+    const linkHref = p.embed ? `/${p.id}` : `/product/${p.id}`;
+    return `
     <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md border border-slate-100 flex flex-col transition-all">
       <div class="text-4xl mb-4">${p.icon}</div>
       <h3 class="text-xl font-bold mb-2 text-slate-900">${p.name}</h3>
       <p class="text-slate-600 mb-6 flex-grow text-sm leading-relaxed">${p.desc}</p>
-      <a href="/product/${p.id}" class="text-center bg-slate-50 text-blue-600 font-semibold py-2.5 rounded-lg hover:bg-blue-100 border border-slate-200 transition-colors">了解详情</a>
-    </div>
-  `).join('');
+      <a href="${linkHref}" class="text-center bg-slate-50 text-blue-600 font-semibold py-2.5 rounded-lg hover:bg-blue-100 border border-slate-200 transition-colors">${p.embed ? '🚀 立即使用' : '了解详情'}</a>
+    </div>`;
+  }).join('');
 
   const content = `
     <div class="max-w-5xl mx-auto px-4 py-16">
@@ -155,16 +168,55 @@ function renderProductPage(data, id) {
   const product = data.products.find(p => p.id === id);
   if (!product) return null;
   const catId = product.category || '';
+  const ctaHref = product.embed ? `/${product.id}` : product.link;
+  const ctaTarget = product.embed ? '' : ' target="_blank"';
   return getHTML(`
     <div class="max-w-3xl mx-auto px-4 py-16">
       <a href="/" class="text-sm text-slate-500 hover:text-blue-600 mb-6 inline-block">&larr; 返回列表</a>
       <div class="bg-white p-8 rounded-2xl shadow-lg border border-slate-100">
         <div class="flex items-center mb-6"><span class="text-6xl mr-6">${product.icon}</span><h1 class="text-3xl font-bold">${product.name}</h1></div>
         <div class="prose max-w-none text-slate-600 mb-8 whitespace-pre-line"><p class="text-lg text-slate-800 font-medium">${product.desc}</p><hr class="my-4 border-slate-100"><p>${product.detail}</p></div>
-        <a href="${product.link}" target="_blank" class="block w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-transform hover:-translate-y-0.5">${product.cta}</a>
+        <a href="${ctaHref}"${ctaTarget} class="block w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-transform hover:-translate-y-0.5">${product.cta}</a>
       </div>
     </div>
   `, `${product.name} - 详情`, "", catId, categories);
+}
+
+function renderEmbedPage(data, id) {
+  const categories = data.categories || [];
+  const product = data.products.find(p => p.id === id);
+  if (!product || !product.link) return null;
+  const catId = product.category || '';
+  const navItems = renderNav(categories, catId);
+  return `
+  <!DOCTYPE html>
+  <html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${product.name}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; }
+      .nav-scroll::-webkit-scrollbar { display: none; }
+      .nav-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+      .tool-frame { width: 100%; height: calc(100vh - 53px); border: none; }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-800 flex flex-col h-screen">
+    <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200 shrink-0">
+      <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-1 nav-scroll overflow-x-auto">
+        <a href="/" class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 mr-3 shrink-0">🛠️ MyTools</a>
+        ${navItems}
+        <div class="ml-auto shrink-0 flex items-center gap-2">
+          <span class="text-sm text-slate-400">${product.icon} ${product.name}</span>
+          <a href="/product/${product.id}" class="text-xs text-blue-500 hover:text-blue-700">详情</a>
+        </div>
+      </div>
+    </nav>
+    <iframe src="${product.link}" class="tool-frame" allowfullscreen></iframe>
+  </body>
+  </html>`;
 }
 
 function renderPromptsPage(data) {
@@ -238,7 +290,10 @@ function renderAdminUI(dataJson, password) {
                             <div>
                                 <h3 class="font-bold">{{ item.name }}</h3>
                                 <p class="text-xs text-gray-500 truncate w-64">{{ item.desc }}</p>
-                                <span v-if="item.category" class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded mt-1 inline-block">{{ getCategoryName(item.category) }}</span>
+                                <div class="flex gap-1 mt-1">
+                                    <span v-if="item.category" class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">{{ getCategoryName(item.category) }}</span>
+                                    <span v-if="item.embed" class="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded">嵌入模式</span>
+                                </div>
                             </div>
                         </div>
                         <div class="flex gap-2">
@@ -296,7 +351,7 @@ function renderAdminUI(dataJson, password) {
             <div v-if="editType === 'product'" class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div><label class="block text-sm font-bold text-gray-700">名称</label><input v-model="editingItem.name" class="w-full border p-2 rounded"></div>
-                    <div><label class="block text-sm font-bold text-gray-700">ID (唯一标识)</label><input v-model="editingItem.id" class="w-full border p-2 rounded"></div>
+                    <div><label class="block text-sm font-bold text-gray-700">ID (唯一标识，也用作短路径)</label><input v-model="editingItem.id" class="w-full border p-2 rounded" placeholder="如: mini-cover"></div>
                 </div>
                 <div><label class="block text-sm font-bold text-gray-700">图标 (Emoji或HTML)</label><input v-model="editingItem.icon" class="w-full border p-2 rounded"></div>
                 <div><label class="block text-sm font-bold text-gray-700">简短描述</label><input v-model="editingItem.desc" class="w-full border p-2 rounded"></div>
@@ -306,9 +361,16 @@ function renderAdminUI(dataJson, password) {
                         <option v-for="cat in data.categories.filter(c => c.type === 'products')" :key="cat.id" :value="cat.id">{{ cat.icon }} {{ cat.name }}</option>
                     </select>
                 </div>
-                <div><label class="block text-sm font-bold text-gray-700">详情内容 (支持HTML)</label><textarea v-model="editingItem.detail" rows="5" class="w-full border p-2 rounded"></textarea></div>
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
+                    <input type="checkbox" v-model="editingItem.embed" id="embed-check" class="w-4 h-4 text-blue-600 rounded">
+                    <label for="embed-check" class="text-sm">
+                        <span class="font-bold text-gray-700">嵌入模式</span>
+                        <span class="text-gray-500 block">开启后，访问 /{{ editingItem.id }} 将在项目内嵌 iframe 展示工具，而非跳转外链</span>
+                    </label>
+                </div>
+                <div><label class="block text-sm font-bold text-gray-700">链接 URL</label><input v-model="editingItem.link" class="w-full border p-2 rounded" placeholder="嵌入模式填外部URL，非嵌入模式可填任意链接"></div>
+                <div><label class="block text-sm font-bold text-gray-700">详情内容 (支持HTML)</label><textarea v-model="editingItem.detail" rows="4" class="w-full border p-2 rounded"></textarea></div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-sm font-bold text-gray-700">链接 URL</label><input v-model="editingItem.link" class="w-full border p-2 rounded" placeholder="外部链接或 /短路径"></div>
                     <div><label class="block text-sm font-bold text-gray-700">按钮文字</label><input v-model="editingItem.cta" class="w-full border p-2 rounded"></div>
                 </div>
             </div>
@@ -370,7 +432,7 @@ function renderAdminUI(dataJson, password) {
             this.editType = type;
             this.editIndex = -1;
             if (type === 'product') {
-                this.editingItem = { id: 'new-'+Date.now(), name: '新工具', icon: '✨', desc: '', detail: '', link: '#', cta: '访问', category: '' };
+                this.editingItem = { id: 'new-'+Date.now(), name: '新工具', icon: '✨', desc: '', detail: '', link: '', cta: '访问', category: '', embed: false };
             } else {
                 this.editingItem = { title: '新提示词', tags: [], content: '', category: 'prompts' };
                 this.tagsInput = '';
@@ -381,6 +443,7 @@ function renderAdminUI(dataJson, password) {
             this.editIndex = index;
             const source = type === 'product' ? this.data.products : this.data.prompts;
             this.editingItem = JSON.parse(JSON.stringify(source[index]));
+            if (this.editingItem.embed === undefined) this.editingItem.embed = false;
             if (type === 'prompt') {
                 this.tagsInput = this.editingItem.tags.join(', ');
             }
@@ -429,7 +492,7 @@ function renderAdminUI(dataJson, password) {
                 if (text.includes('成功')) alert('✅ 保存成功！');
                 else alert('❌ 保存失败：' + text);
             } catch(e) {
-                alert('网络错误');
+                alert('❌ 网络错误：' + e.message);
             }
             this.isSaving = false;
           }
@@ -441,4 +504,4 @@ function renderAdminUI(dataJson, password) {
   `;
 }
 
-export { DEFAULT_DATA, getData, getHTML, renderNav, renderHomePage, renderProductPage, renderPromptsPage, renderAdminUI };
+export { DEFAULT_DATA, getData, saveData, getHTML, renderNav, renderHomePage, renderProductPage, renderEmbedPage, renderPromptsPage, renderAdminUI };
