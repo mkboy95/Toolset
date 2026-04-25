@@ -1,4 +1,4 @@
-import { getData, renderHomePage } from '../_lib.js';
+import { getData, renderHomePage } from './_lib.js';
 
 export async function onRequestGet({ env }) {
   const data = await getData(env);

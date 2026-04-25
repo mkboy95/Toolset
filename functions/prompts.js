@@ -1,4 +1,4 @@
-import { getData, renderPromptsPage } from '../_lib.js';
+import { getData, renderPromptsPage } from './_lib.js';
 
 export async function onRequestGet({ env }) {
   const data = await getData(env);
