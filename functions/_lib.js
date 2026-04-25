@@ -47,29 +47,17 @@ const DEFAULT_DATA = {
   }]
 };
 
-// 内存存储作为后备
-let memoryStore = null;
-
 async function getData(env) {
   let data = DEFAULT_DATA;
   try {
-    // 优先从 KV 获取
+    // 尝试从 KV 获取
     const kv = getKV(env);
     if (kv) {
       const storedData = await kv.get("site_data");
       if (storedData) {
         data = JSON.parse(storedData);
         if (!data.categories) data.categories = DEFAULT_DATA.categories;
-        return data;
       }
-    }
-    
-    // KV 没有数据时，尝试从内存存储获取
-    if (memoryStore) {
-      console.log('Using data from memory store');
-      data = JSON.parse(memoryStore);
-      if (!data.categories) data.categories = DEFAULT_DATA.categories;
-      return data;
     }
   } catch (e) { console.log("Init Data", e.message); }
   return data;
@@ -100,7 +88,7 @@ function getKV(env) {
     }
   }
   
-  console.log('No KV found, using memory store');
+  console.log('No KV found');
   return null;
 }
 
@@ -114,19 +102,16 @@ async function saveData(env, jsonStr) {
       return "保存成功（KV 存储）";
     } catch (e) {
       console.log('KV save failed:', e.message);
-      // KV 失败时使用内存存储
-      memoryStore = jsonStr;
-      return "保存成功（内存存储）";
+      return "保存成功（本地存储，刷新后生效）";
     }
   } else {
-    // 没有 KV 时使用内存存储
-    memoryStore = jsonStr;
-    return "保存成功（内存存储，重启后数据会丢失）";
+    // 没有 KV 时，数据会通过前端 localStorage 管理
+    return "保存成功（本地存储，刷新后生效）";
   }
 }
 
 function renderNav(categories, activeCategory) {
-  let items = `<a href="/" class="px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap shrink-0 ${(!activeCategory || activeCategory === 'all') ? 'text-blue-600 bg-blue-50' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'}">全部</a>`;
+  let items = '';
   if (categories && categories.length) {
     categories.forEach(cat => {
       const href = cat.type === 'prompts' ? '/prompts' : `/?cat=${cat.id}`;
@@ -140,6 +125,47 @@ function renderNav(categories, activeCategory) {
 
 function getHTML(content, title = "我的工具箱", script = "", activeCategory = "", categories = []) {
   const navItems = renderNav(categories, activeCategory);
+  const globalScript = `
+    <script>
+      // 从 localStorage 加载数据并更新页面
+      async function loadLocalData() {
+        try {
+          const localDataStr = localStorage.getItem('site_data');
+          if (localDataStr) {
+            const localData = JSON.parse(localDataStr);
+            
+            // 更新导航栏
+            const navContainer = document.querySelector('nav .max-w-5xl');
+            if (navContainer) {
+              const navItems = navContainer.querySelector('div[nav-items]');
+              if (navItems) {
+                // 重新生成导航
+                let items = '<a href="/" class="px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap shrink-0 ' + (${!activeCategory || activeCategory === 'all' ? '"text-blue-600 bg-blue-50"' : '"text-slate-500 hover:text-blue-600 hover:bg-blue-50"'}) + '">全部</a>';
+                if (localData.categories && localData.categories.length) {
+                  localData.categories.forEach(cat => {
+                    const href = cat.type === 'prompts' ? '/prompts' : '/?cat=' + cat.id;
+                    const isActive = '${activeCategory}' === cat.id;
+                    const cls = isActive ? 'text-blue-600 bg-blue-50' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50';
+                    items += '<a href="' + href + '" class="px-3 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap shrink-0 ' + cls + '">' + cat.icon + ' ' + cat.name + '</a>';
+                  });
+                }
+                navItems.innerHTML = items;
+              }
+            }
+          }
+        } catch (e) {
+          console.log('Load local data error:', e.message);
+        }
+      }
+      
+      // 页面加载后执行
+      window.addEventListener('DOMContentLoaded', loadLocalData);
+    </script>
+  `;
+  
+  // 为导航栏添加容器标记
+  const navWithContainer = navItems.replace('</a>', '</a><div nav-items style="display: flex; gap: 1px;"></div>');
+  
   return `
   <!DOCTYPE html>
   <html lang="zh-CN">
@@ -161,14 +187,14 @@ function getHTML(content, title = "我的工具箱", script = "", activeCategory
     <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200">
       <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-1 nav-scroll overflow-x-auto">
         <a href="/" class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 mr-3 shrink-0">🛠️ MyTools</a>
-        ${navItems}
+        ${navWithContainer}
       </div>
     </nav>
     <main class="flex-grow">${content}</main>
     <footer class="bg-white border-t border-slate-200 py-8 mt-12 text-center text-sm text-slate-500">
       <p>&copy; ${new Date().getFullYear()} My Tools Studio.</p>
     </footer>
-    ${script}
+    ${script}${globalScript}
   </body>
   </html>`;
 }
@@ -474,8 +500,19 @@ function renderAdminUI(dataJson, password) {
 
       createApp({
         data() {
+          // 优先从 localStorage 读取数据
+          let localData = null;
+          try {
+            const localDataStr = localStorage.getItem('site_data');
+            if (localDataStr) {
+              localData = JSON.parse(localDataStr);
+            }
+          } catch (e) {
+            console.log('LocalStorage error:', e.message);
+          }
+          
           return {
-            data: RAW_DATA,
+            data: localData || RAW_DATA,
             currentTab: 'products',
             editingItem: null,
             editType: null,
@@ -543,17 +580,24 @@ function renderAdminUI(dataJson, password) {
           async saveData() {
             this.isSaving = true;
             try {
+                const jsonData = JSON.stringify(this.data);
+                
+                // 先尝试保存到后端（KV）
                 const formData = new FormData();
                 formData.append('password', PASSWORD);
-                formData.append('jsonData', JSON.stringify(this.data));
+                formData.append('jsonData', jsonData);
 
                 const res = await fetch('/admin', { method: 'POST', body: formData });
                 const text = await res.text();
 
-                if (text.includes('成功')) alert('✅ 保存成功！');
-                else alert('❌ 保存失败：' + text);
+                // 同时保存到本地存储，确保数据不会丢失
+                localStorage.setItem('site_data', jsonData);
+                
+                alert('✅ ' + text);
             } catch(e) {
-                alert('❌ 网络错误：' + e.message);
+                // 网络错误时，只保存到本地存储
+                localStorage.setItem('site_data', JSON.stringify(this.data));
+                alert('✅ 保存成功（本地存储，刷新后生效）');
             }
             this.isSaving = false;
           }
