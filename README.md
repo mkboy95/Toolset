@@ -7,10 +7,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mkboy95/Toolset/stargazers"><img src="https://img.shields.io/github/stars/mkboy95/Toolset?style=for-the-badge&color=yellow"></a>
-  <a href="https://github.com/mkboy95/Toolset/network/members"><img src="https://img.shields.io/github/forks/mkboy95/Toolset?style=for-the-badge&color=green"></a>
-  <a href="https://github.com/mkboy95/Toolset/issues"><img src="https://img.shields.io/github/issues/mkboy95/Toolset?style=for-the-badge&color=blue"></a>
-  <a href="https://github.com/mkboy95/Toolset/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mkboy95/Toolset?style=for-the-badge&color=purple"></a>
+  <a href="https://github.com/mkboy95/Toolset"><img src="https://img.shields.io/badge/Deployed_with-EdgeOne_Pages-0070f3?style=flat-square&logo=tencent-cloud&logoColor=white" alt="EdgeOne Pages"></a>
+  <a href="https://github.com/mkboy95/Toolset"><img src="https://img.shields.io/badge/Deployed_with-Cloudflare_Pages-f38020?style=flat-square&logo=cloudflare&logoColor=white" alt="Cloudflare Pages"></a>
+  <img src="https://img.shields.io/badge/Vue-3-4fc08d?style=flat-square&logo=vue.js&logoColor=white" alt="Vue 3">
+  <img src="https://img.shields.io/badge/Tailwind_CSS-3-38b2ac?style=flat-square&logo=tailwind-css&logoColor=white" alt="Tailwind CSS 3">
+  <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="License">
 </p>
 
 <p align="center">
