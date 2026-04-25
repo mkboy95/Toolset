@@ -161,12 +161,16 @@ function renderHomePage(data, category = "all") {
   const cards = products.map(p => {
     const mainHref = p.embed ? `/${p.id}` : `/product/${p.id}`;
     const mainText = p.embed ? '🚀 立即使用' : '了解详情';
+    const detailBtn = p.embed ? `<a href="/product/${p.id}" class="text-xs text-slate-500 hover:text-blue-600 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50 border border-slate-200">详情</a>` : '';
     return `
     <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md border border-slate-100 flex flex-col transition-all">
       <div class="text-4xl mb-4">${p.icon}</div>
       <h3 class="text-xl font-bold mb-2 text-slate-900">${p.name}</h3>
       <p class="text-slate-600 mb-6 flex-grow text-sm leading-relaxed">${p.desc}</p>
-      <a href="${mainHref}" class="text-center bg-slate-50 text-blue-600 font-semibold py-2.5 rounded-lg hover:bg-blue-100 border border-slate-200 transition-colors">${mainText}</a>
+      <div class="flex items-center gap-2">
+        ${detailBtn}
+        <a href="${mainHref}" class="flex-1 text-center bg-slate-50 text-blue-600 font-semibold py-2.5 rounded-lg hover:bg-blue-100 border border-slate-200 transition-colors">${mainText}</a>
+      </div>
     </div>`;
   }).join('');
 
