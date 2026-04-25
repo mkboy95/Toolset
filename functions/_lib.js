@@ -161,16 +161,12 @@ function renderHomePage(data, category = "all") {
   const cards = products.map(p => {
     const mainHref = p.embed ? `/${p.id}` : `/product/${p.id}`;
     const mainText = p.embed ? '🚀 立即使用' : '了解详情';
-    const detailBtn = p.embed ? `<a href="/product/${p.id}" class="text-xs text-slate-500 hover:text-blue-600 transition-colors px-3 py-2 whitespace-nowrap">详情</a>` : '';
     return `
     <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md border border-slate-100 flex flex-col transition-all">
       <div class="text-4xl mb-4">${p.icon}</div>
       <h3 class="text-xl font-bold mb-2 text-slate-900">${p.name}</h3>
       <p class="text-slate-600 mb-6 flex-grow text-sm leading-relaxed">${p.desc}</p>
-      <div class="flex items-center gap-2">
-        ${detailBtn}
-        <a href="${mainHref}" class="flex-1 text-center bg-slate-50 text-blue-600 font-medium py-2 rounded-lg hover:bg-blue-100 border border-slate-200 transition-colors text-sm">${mainText}</a>
-      </div>
+      <a href="${mainHref}" class="text-center bg-slate-50 text-blue-600 font-semibold py-2.5 rounded-lg hover:bg-blue-100 border border-slate-200 transition-colors">${mainText}</a>
     </div>`;
   }).join('');
 
@@ -229,10 +225,6 @@ function renderEmbedPage(data, id) {
       <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-1 nav-scroll overflow-x-auto">
         <a href="/" class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 mr-3 shrink-0">🛠️ MyTools</a>
         ${navItems}
-        <div class="ml-auto shrink-0 flex items-center gap-2">
-          <span class="text-sm text-slate-400">${product.icon} ${product.name}</span>
-          <a href="/product/${product.id}" class="text-xs text-blue-500 hover:text-blue-700">详情</a>
-        </div>
       </div>
     </nav>
     <iframe src="${product.link}" class="tool-frame" allowfullscreen></iframe>
