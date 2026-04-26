@@ -51,27 +51,57 @@ const DEFAULT_DATA = {
 async function getData(env) {
   let data = DEFAULT_DATA;
   try {
-    // 1. 尝试从 KV 存储读取
-    const kv = getKV(env);
-    if (kv) {
-      console.log('Trying to read from KV');
-      const storedData = await kv.get("site_data");
-      if (storedData) {
-        console.log('Data found in KV');
-        data = JSON.parse(storedData);
-        if (!data.categories) data.categories = DEFAULT_DATA.categories;
-        data.products = (data.products || []).map(p => {
-          if (p.toolType === undefined) {
-            p.toolType = p.embed ? "local" : "external";
-            delete p.embed;
-          }
-          return p;
-        });
-        return data;
+    // 1. 直接使用全局 my_kv 变量（EdgeOne Pages 的方式）
+    if (typeof my_kv !== 'undefined') {
+      console.log('Trying to read from global my_kv');
+      try {
+        const storedData = await my_kv.get("site_data");
+        if (storedData) {
+          console.log('Data found in my_kv');
+          data = JSON.parse(storedData);
+          if (!data.categories) data.categories = DEFAULT_DATA.categories;
+          data.products = (data.products || []).map(p => {
+            if (p.toolType === undefined) {
+              p.toolType = p.embed ? "local" : "external";
+              delete p.embed;
+            }
+            return p;
+          });
+          return data;
+        }
+      } catch (e) {
+        console.log('Error reading from my_kv:', e.message);
       }
+    } else {
+      console.log('my_kv is not defined as global variable');
     }
     
-    // 2. 尝试从静态 JSON 文件读取
+    // 2. 尝试从环境变量中读取（Cloudflare Workers 的方式）
+    if (env && env.my_kv) {
+      console.log('Trying to read from env.my_kv');
+      try {
+        const storedData = await env.my_kv.get("site_data");
+        if (storedData) {
+          console.log('Data found in env.my_kv');
+          data = JSON.parse(storedData);
+          if (!data.categories) data.categories = DEFAULT_DATA.categories;
+          data.products = (data.products || []).map(p => {
+            if (p.toolType === undefined) {
+              p.toolType = p.embed ? "local" : "external";
+              delete p.embed;
+            }
+            return p;
+          });
+          return data;
+        }
+      } catch (e) {
+        console.log('Error reading from env.my_kv:', e.message);
+      }
+    } else {
+      console.log('env.my_kv is not defined');
+    }
+    
+    // 3. 尝试从静态 JSON 文件读取
     console.log('Trying to read from data.json');
     try {
       const response = await fetch('/data.json');
@@ -147,14 +177,35 @@ function getKV(env) {
 }
 
 async function saveData(env, jsonStr) {
-  const kv = getKV(env);
-  if (kv) {
-    console.log('Saving to KV');
-    await kv.put("site_data", jsonStr);
-    console.log('Saved to KV successfully');
+  // 1. 直接使用全局 my_kv 变量（EdgeOne Pages 的方式）
+  if (typeof my_kv !== 'undefined') {
+    console.log('Saving to global my_kv');
+    try {
+      await my_kv.put("site_data", jsonStr);
+      console.log('Saved to my_kv successfully');
+      return jsonStr;
+    } catch (e) {
+      console.log('Error saving to my_kv:', e.message);
+    }
   } else {
-    console.log('No KV available, data will be stored in localStorage');
+    console.log('my_kv is not defined as global variable');
   }
+  
+  // 2. 尝试从环境变量中保存（Cloudflare Workers 的方式）
+  if (env && env.my_kv) {
+    console.log('Saving to env.my_kv');
+    try {
+      await env.my_kv.put("site_data", jsonStr);
+      console.log('Saved to env.my_kv successfully');
+      return jsonStr;
+    } catch (e) {
+      console.log('Error saving to env.my_kv:', e.message);
+    }
+  } else {
+    console.log('env.my_kv is not defined');
+  }
+  
+  console.log('No KV available, data will be stored in localStorage');
   // 即使没有 KV 也返回成功，因为前端会使用 localStorage 存储
   return jsonStr;
 }
