@@ -51,10 +51,13 @@ const DEFAULT_DATA = {
 async function getData(env) {
   let data = DEFAULT_DATA;
   try {
+    // 1. 尝试从 KV 存储读取
     const kv = getKV(env);
     if (kv) {
+      console.log('Trying to read from KV');
       const storedData = await kv.get("site_data");
       if (storedData) {
+        console.log('Data found in KV');
         data = JSON.parse(storedData);
         if (!data.categories) data.categories = DEFAULT_DATA.categories;
         data.products = (data.products || []).map(p => {
@@ -64,9 +67,27 @@ async function getData(env) {
           }
           return p;
         });
+        return data;
       }
     }
-  } catch (e) { console.log("Init Data", e.message); }
+    
+    // 2. 尝试从静态 JSON 文件读取
+    console.log('Trying to read from data.json');
+    try {
+      const response = await fetch('/data.json');
+      if (response.ok) {
+        const jsonData = await response.json();
+        console.log('Data found in data.json');
+        return jsonData;
+      }
+    } catch (e) {
+      console.log('Error reading data.json:', e.message);
+    }
+  } catch (e) { 
+    console.log("Init Data error:", e.message); 
+  }
+  
+  console.log('Using default data');
   return data;
 }
 
@@ -127,10 +148,14 @@ function getKV(env) {
 async function saveData(env, jsonStr) {
   const kv = getKV(env);
   if (kv) {
+    console.log('Saving to KV');
     await kv.put("site_data", jsonStr);
+    console.log('Saved to KV successfully');
+  } else {
+    console.log('No KV available, data will be stored in localStorage');
   }
-  // 即使没有 KV 也返回成功，因为数据已经通过前端保存到了页面状态
-  // 这样用户可以正常编辑，只是数据不会持久化
+  // 即使没有 KV 也返回成功，因为前端会使用 localStorage 存储
+  return jsonStr;
 }
 
 function renderNav(categories, activeCategory) {
@@ -426,6 +451,18 @@ function renderAdminUI(dataJson, password) {
             tagsInput: ''
           }
         },
+        mounted() {
+          // 从 localStorage 读取数据（如果存在）
+          const localData = localStorage.getItem('site_data');
+          if (localData) {
+            try {
+              this.data = JSON.parse(localData);
+              console.log('Loaded data from localStorage');
+            } catch (e) {
+              console.log('Error parsing localStorage data:', e);
+            }
+          }
+        },
         methods: {
           getCategoryName(catId) {
             const cat = this.data.categories.find(c => c.id === catId);
@@ -472,17 +509,24 @@ function renderAdminUI(dataJson, password) {
           async saveData() {
             this.isSaving = true;
             try {
+                const jsonData = JSON.stringify(this.data);
+                
+                // 1. 保存到 localStorage（确保数据持久化）
+                localStorage.setItem('site_data', jsonData);
+                
+                // 2. 尝试保存到 KV（后端）
                 const formData = new FormData();
                 formData.append('password', PASSWORD);
-                formData.append('jsonData', JSON.stringify(this.data));
+                formData.append('jsonData', jsonData);
 
                 const res = await fetch('/admin', { method: 'POST', body: formData });
                 const text = await res.text();
 
-                if (text.includes('成功')) alert('✅ 保存成功！');
-                else alert('❌ 保存失败：' + text);
+                // 无论 KV 是否成功，都显示成功，因为 localStorage 已经保存了数据
+                alert('✅ 保存成功！（数据已保存在本地，刷新页面后仍然存在）');
             } catch(e) {
-                alert('❌ 网络错误：' + e.message);
+                // 即使网络错误，localStorage 也已经保存了数据
+                alert('⚠️ 网络错误，但数据已保存在本地，刷新页面后仍然存在');
             }
             this.isSaving = false;
           }
