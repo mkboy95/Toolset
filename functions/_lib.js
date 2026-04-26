@@ -72,15 +72,38 @@ async function getData(env) {
 
 function getKV(env) {
   if (!env) return null;
-  if (env.my_kv) return env.my_kv;
-  if (env.DB) return env.DB;
-  const keys = Object.keys(env);
-  for (const key of keys) {
-    const val = env[key];
-    if (val && typeof val === 'object' && typeof val.get === 'function' && typeof val.put === 'function') {
-      return val;
+  
+  // 尝试所有可能的 KV 绑定名称
+  const possibleNames = ['my_kv', 'DB', 'KV', 'kv', 'tools_kv', 'TOOLS_KV'];
+  for (const name of possibleNames) {
+    if (env[name]) {
+      const val = env[name];
+      console.log(`Checking ${name}:`, typeof val, val);
+      if (val && typeof val === 'object') {
+        console.log(`  Has get method:`, typeof val.get === 'function');
+        console.log(`  Has put method:`, typeof val.put === 'function');
+        if (typeof val.get === 'function' && typeof val.put === 'function') {
+          console.log('KV found:', name);
+          return val;
+        }
+      }
     }
   }
+  
+  // 扫描所有 env 键，查找具有 get/put 方法的对象
+  const keys = Object.keys(env);
+  console.log('All env keys:', keys.join(', '));
+  for (const key of keys) {
+    const val = env[key];
+    if (val && typeof val === 'object') {
+      if (typeof val.get === 'function' && typeof val.put === 'function') {
+        console.log('KV found via scan:', key);
+        return val;
+      }
+    }
+  }
+  
+  console.log('No KV found in env');
   return null;
 }
 
