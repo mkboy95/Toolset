@@ -92,19 +92,36 @@ async function getData(env) {
 }
 
 function getKV(env) {
-  // 1. 尝试从环境变量中获取
+  // 1. 尝试直接使用全局变量（EdgeOne Pages 的方式）
+  const globalKVNames = ['my_kv', 'DB', 'KV', 'kv', 'tools_kv', 'TOOLS_KV'];
+  for (const name of globalKVNames) {
+    const val = globalThis[name];
+    if (val) {
+      console.log(`Checking global ${name}:`, typeof val, val);
+      if (val && typeof val === 'object') {
+        console.log(`  Has get method:`, typeof val.get === 'function');
+        console.log(`  Has put method:`, typeof val.put === 'function');
+        if (typeof val.get === 'function' && typeof val.put === 'function') {
+          console.log('KV found as global variable:', name);
+          return val;
+        }
+      }
+    }
+  }
+  
+  // 2. 尝试从环境变量中获取（Cloudflare Workers 的方式）
   if (env) {
     // 尝试所有可能的 KV 绑定名称
     const possibleNames = ['my_kv', 'DB', 'KV', 'kv', 'tools_kv', 'TOOLS_KV'];
     for (const name of possibleNames) {
       if (env[name]) {
         const val = env[name];
-        console.log(`Checking ${name}:`, typeof val, val);
+        console.log(`Checking ${name} in env:`, typeof val, val);
         if (val && typeof val === 'object') {
           console.log(`  Has get method:`, typeof val.get === 'function');
           console.log(`  Has put method:`, typeof val.put === 'function');
           if (typeof val.get === 'function' && typeof val.put === 'function') {
-            console.log('KV found:', name);
+            console.log('KV found in env:', name);
             return val;
           }
         }
@@ -118,27 +135,11 @@ function getKV(env) {
       const val = env[key];
       if (val && typeof val === 'object') {
         if (typeof val.get === 'function' && typeof val.put === 'function') {
-          console.log('KV found via scan:', key);
+          console.log('KV found via env scan:', key);
           return val;
         }
       }
     }
-  }
-  
-  // 2. 尝试全局对象
-  if (typeof self !== 'undefined' && self.KV) {
-    console.log('KV found in global self.KV');
-    return self.KV;
-  }
-  
-  if (typeof global !== 'undefined' && global.KV) {
-    console.log('KV found in global global.KV');
-    return global.KV;
-  }
-  
-  if (typeof KV !== 'undefined') {
-    console.log('KV found in global KV');
-    return KV;
   }
   
   console.log('No KV found anywhere');
