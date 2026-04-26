@@ -11,10 +11,10 @@ const DEFAULT_DATA = {
       desc: "简洁的在线生成封面网站，专为博客、短视频、社交媒体等生成个性化封面。",
       icon: "🎨",
       detail: "Mini-Cover 是一个现代化的封面生成工具，专为博客、短视频、社交媒体设计。支持多种自定义选项，让你轻松创建个性化封面图片。\n\n✨ 特性：\n- 📱 响应式设计，完美支持移动端\n- 🎨 丰富的图标库，一键选用\n- 🖼️ 自定义背景图片，支持拖拽上传\n- ✍️ 灵活的标题编辑，多种字体可选\n- 💫 水印效果调整，实时预览\n- 🎯 简洁的操作界面，快速上手\n\n🔗 项目地址：https://github.com/mkboy95/Mini-Cover",
-      link: "https://cover.bsgun.cn/",
+      link: "/mini-cover/",
       cta: "立即使用",
       category: "covers",
-      embed: true
+      toolType: "local"
     },
     {
       id: "thiscover",
@@ -25,7 +25,7 @@ const DEFAULT_DATA = {
       link: "https://cover.202597.xyz/",
       cta: "立即使用",
       category: "covers",
-      embed: true
+      toolType: "external"
     },
     {
       id: "demo",
@@ -36,7 +36,7 @@ const DEFAULT_DATA = {
       link: "#",
       cta: "按钮文字",
       category: "tools",
-      embed: false
+      toolType: "external"
     }
   ],
   prompts: [{
@@ -56,6 +56,13 @@ async function getData(env) {
       if (storedData) {
         data = JSON.parse(storedData);
         if (!data.categories) data.categories = DEFAULT_DATA.categories;
+        data.products = (data.products || []).map(p => {
+          if (p.toolType === undefined) {
+            p.toolType = p.embed ? "local" : "external";
+            delete p.embed;
+          }
+          return p;
+        });
       }
     }
   } catch (e) { console.log("Init Data", e.message); }
@@ -159,9 +166,10 @@ function renderHomePage(data, category = "all") {
   }
 
   const cards = products.map(p => {
-    const mainHref = p.embed ? `/${p.id}` : `/product/${p.id}`;
-    const mainText = p.embed ? '🚀 立即使用' : '了解详情';
-    const detailBtn = p.embed ? `<a href="/product/${p.id}" class="text-xs text-slate-500 hover:text-blue-600 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50 border border-slate-200">详情</a>` : '';
+    const isLocal = p.toolType === 'local';
+    const mainHref = isLocal ? p.link : `/product/${p.id}`;
+    const mainText = isLocal ? '🚀 立即使用' : '了解详情';
+    const detailBtn = isLocal ? `<a href="/product/${p.id}" class="text-xs text-slate-500 hover:text-blue-600 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50 border border-slate-200">详情</a>` : '';
     return `
     <div class="bg-white p-6 rounded-xl shadow-sm hover:shadow-md border border-slate-100 flex flex-col transition-all">
       <div class="text-4xl mb-4">${p.icon}</div>
@@ -188,52 +196,19 @@ function renderProductPage(data, id) {
   const product = data.products.find(p => p.id === id);
   if (!product) return null;
   const catId = product.category || '';
-  const ctaHref = product.embed ? `/${product.id}` : product.link;
-  const ctaTarget = product.embed ? '' : ' target="_blank"';
-  const ctaStyle = product.embed ? 'block w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-transform hover:-translate-y-0.5' : 'block w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-transform hover:-translate-y-0.5';
+  const isLocal = product.toolType === 'local';
+  const ctaHref = isLocal ? product.link : product.link;
+  const ctaTarget = isLocal ? '' : ' target="_blank"';
   return getHTML(`
     <div class="max-w-3xl mx-auto px-4 py-16">
       <a href="/" class="text-sm text-slate-500 hover:text-blue-600 mb-6 inline-block">&larr; 返回列表</a>
       <div class="bg-white p-8 rounded-2xl shadow-lg border border-slate-100">
         <div class="flex items-center mb-6"><span class="text-6xl mr-6">${product.icon}</span><h1 class="text-3xl font-bold">${product.name}</h1></div>
         <div class="prose max-w-none text-slate-600 mb-8 whitespace-pre-line"><p class="text-lg text-slate-800 font-medium">${product.desc}</p><hr class="my-4 border-slate-100"><p>${product.detail}</p></div>
-        <a href="${ctaHref}"${ctaTarget} class="${ctaStyle}">${product.cta}</a>
+        <a href="${ctaHref}"${ctaTarget} class="block w-full bg-blue-600 text-white text-center py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-transform hover:-translate-y-0.5">${product.cta}</a>
       </div>
     </div>
   `, `${product.name} - 详情`, "", catId, categories);
-}
-
-function renderEmbedPage(data, id) {
-  const categories = data.categories || [];
-  const product = data.products.find(p => p.id === id);
-  if (!product || !product.link) return null;
-  const catId = product.category || '';
-  const navItems = renderNav(categories, catId);
-  return `
-  <!DOCTYPE html>
-  <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${product.name}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; }
-      .nav-scroll::-webkit-scrollbar { display: none; }
-      .nav-scroll { -ms-overflow-style: none; scrollbar-width: none; }
-      .tool-frame { width: 100%; height: calc(100vh - 53px); border: none; }
-    </style>
-  </head>
-  <body class="bg-slate-50 text-slate-800 flex flex-col h-screen">
-    <nav class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200 shrink-0">
-      <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-1 nav-scroll overflow-x-auto">
-        <a href="/" class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 mr-3 shrink-0">🛠️ MyTools</a>
-        ${navItems}
-      </div>
-    </nav>
-    <iframe src="${product.link}" class="tool-frame" allowfullscreen></iframe>
-  </body>
-  </html>`;
 }
 
 function renderPromptsPage(data) {
@@ -308,7 +283,8 @@ function renderAdminUI(dataJson, password) {
                                 <p class="text-xs text-gray-500 truncate w-64">{{ item.desc }}</p>
                                 <div class="flex gap-1 mt-1">
                                     <span v-if="item.category" class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">{{ getCategoryName(item.category) }}</span>
-                                    <span v-if="item.embed" class="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded">嵌入模式</span>
+                                    <span v-if="item.toolType === 'local'" class="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded">📁 本地工具</span>
+                                    <span v-else class="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded">🔗 外部工具</span>
                                 </div>
                             </div>
                         </div>
@@ -357,18 +333,24 @@ function renderAdminUI(dataJson, password) {
                         <option v-for="cat in data.categories.filter(c => c.type === 'products')" :key="cat.id" :value="cat.id">{{ cat.icon }} {{ cat.name }}</option>
                     </select>
                 </div>
-                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
-                    <input type="checkbox" v-model="editingItem.embed" id="embed-check" class="w-4 h-4 text-blue-600 rounded">
-                    <label for="embed-check" class="text-sm">
-                        <span class="font-bold text-gray-700">嵌入模式</span>
-                        <span class="text-gray-500 block">开启后，访问 /{{ editingItem.id }} 将在项目内嵌 iframe 展示工具，而非跳转外链</span>
-                    </label>
+                <div class="p-3 bg-gray-50 rounded-lg border">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">工具类型</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" v-model="editingItem.toolType" value="local" class="text-blue-600">
+                            <span class="text-sm">📁 本地工具</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" v-model="editingItem.toolType" value="external" class="text-blue-600">
+                            <span class="text-sm">🔗 外部工具</span>
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2" v-if="editingItem.toolType === 'local'">本地工具：将编译好的文件放入项目根目录的文件夹（如 <code>/{{ editingItem.id }}/</code>），访问 <code>/{{ editingItem.id }}</code> 即可直接使用</p>
+                    <p class="text-xs text-gray-500 mt-2" v-else>外部工具：填写完整的外部 URL，用户点击后在新窗口打开</p>
                 </div>
-                <div><label class="block text-sm font-bold text-gray-700">链接 URL</label><input v-model="editingItem.link" class="w-full border p-2 rounded" placeholder="嵌入模式填外部URL，非嵌入模式可填任意链接"></div>
+                <div><label class="block text-sm font-bold text-gray-700">链接</label><input v-model="editingItem.link" class="w-full border p-2 rounded" :placeholder="editingItem.toolType === 'local' ? '如: /mini-cover/' : '如: https://example.com/'"></div>
                 <div><label class="block text-sm font-bold text-gray-700">详情内容 (支持HTML)</label><textarea v-model="editingItem.detail" rows="4" class="w-full border p-2 rounded"></textarea></div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-sm font-bold text-gray-700">按钮文字</label><input v-model="editingItem.cta" class="w-full border p-2 rounded"></div>
-                </div>
+                <div><label class="block text-sm font-bold text-gray-700">按钮文字</label><input v-model="editingItem.cta" class="w-full border p-2 rounded"></div>
             </div>
 
             <div v-if="editType === 'prompt'" class="space-y-4">
@@ -412,7 +394,7 @@ function renderAdminUI(dataJson, password) {
             this.editType = type;
             this.editIndex = -1;
             if (type === 'product') {
-                this.editingItem = { id: 'new-'+Date.now(), name: '新工具', icon: '✨', desc: '', detail: '', link: '', cta: '访问', category: '', embed: false };
+                this.editingItem = { id: 'new-'+Date.now(), name: '新工具', icon: '✨', desc: '', detail: '', link: '', cta: '访问', category: '', toolType: 'external' };
             } else {
                 this.editingItem = { title: '新提示词', tags: [], content: '', category: 'prompts' };
                 this.tagsInput = '';
@@ -423,7 +405,7 @@ function renderAdminUI(dataJson, password) {
             this.editIndex = index;
             const source = type === 'product' ? this.data.products : this.data.prompts;
             this.editingItem = JSON.parse(JSON.stringify(source[index]));
-            if (this.editingItem.embed === undefined) this.editingItem.embed = false;
+            if (!this.editingItem.toolType) this.editingItem.toolType = 'external';
             if (type === 'prompt') {
                 this.tagsInput = this.editingItem.tags.join(', ');
             }
@@ -471,4 +453,4 @@ function renderAdminUI(dataJson, password) {
   `;
 }
 
-export { DEFAULT_DATA, getData, getKV, saveData, getHTML, renderNav, renderHomePage, renderProductPage, renderEmbedPage, renderPromptsPage, renderAdminUI };
+export { DEFAULT_DATA, getData, getKV, saveData, getHTML, renderNav, renderHomePage, renderProductPage, renderPromptsPage, renderAdminUI };
