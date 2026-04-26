@@ -71,39 +71,56 @@ async function getData(env) {
 }
 
 function getKV(env) {
-  if (!env) return null;
-  
-  // 尝试所有可能的 KV 绑定名称
-  const possibleNames = ['my_kv', 'DB', 'KV', 'kv', 'tools_kv', 'TOOLS_KV'];
-  for (const name of possibleNames) {
-    if (env[name]) {
-      const val = env[name];
-      console.log(`Checking ${name}:`, typeof val, val);
+  // 1. 尝试从环境变量中获取
+  if (env) {
+    // 尝试所有可能的 KV 绑定名称
+    const possibleNames = ['my_kv', 'DB', 'KV', 'kv', 'tools_kv', 'TOOLS_KV'];
+    for (const name of possibleNames) {
+      if (env[name]) {
+        const val = env[name];
+        console.log(`Checking ${name}:`, typeof val, val);
+        if (val && typeof val === 'object') {
+          console.log(`  Has get method:`, typeof val.get === 'function');
+          console.log(`  Has put method:`, typeof val.put === 'function');
+          if (typeof val.get === 'function' && typeof val.put === 'function') {
+            console.log('KV found:', name);
+            return val;
+          }
+        }
+      }
+    }
+    
+    // 扫描所有 env 键，查找具有 get/put 方法的对象
+    const keys = Object.keys(env);
+    console.log('All env keys:', keys.join(', '));
+    for (const key of keys) {
+      const val = env[key];
       if (val && typeof val === 'object') {
-        console.log(`  Has get method:`, typeof val.get === 'function');
-        console.log(`  Has put method:`, typeof val.put === 'function');
         if (typeof val.get === 'function' && typeof val.put === 'function') {
-          console.log('KV found:', name);
+          console.log('KV found via scan:', key);
           return val;
         }
       }
     }
   }
   
-  // 扫描所有 env 键，查找具有 get/put 方法的对象
-  const keys = Object.keys(env);
-  console.log('All env keys:', keys.join(', '));
-  for (const key of keys) {
-    const val = env[key];
-    if (val && typeof val === 'object') {
-      if (typeof val.get === 'function' && typeof val.put === 'function') {
-        console.log('KV found via scan:', key);
-        return val;
-      }
-    }
+  // 2. 尝试全局对象
+  if (typeof self !== 'undefined' && self.KV) {
+    console.log('KV found in global self.KV');
+    return self.KV;
   }
   
-  console.log('No KV found in env');
+  if (typeof global !== 'undefined' && global.KV) {
+    console.log('KV found in global global.KV');
+    return global.KV;
+  }
+  
+  if (typeof KV !== 'undefined') {
+    console.log('KV found in global KV');
+    return KV;
+  }
+  
+  console.log('No KV found anywhere');
   return null;
 }
 
