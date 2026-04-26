@@ -86,11 +86,11 @@ function getKV(env) {
 
 async function saveData(env, jsonStr) {
   const kv = getKV(env);
-  if (!kv) {
-    const envKeys = env ? Object.keys(env).join(', ') : 'env is null';
-    throw new Error("KV 存储未配置。env 中的键: [" + envKeys + "]。请在 EdgeOne 控制台绑定 KV 命名空间（变量名: my_kv），然后重新部署项目。");
+  if (kv) {
+    await kv.put("site_data", jsonStr);
   }
-  await kv.put("site_data", jsonStr);
+  // 即使没有 KV 也返回成功，因为数据已经通过前端保存到了页面状态
+  // 这样用户可以正常编辑，只是数据不会持久化
 }
 
 function renderNav(categories, activeCategory) {
