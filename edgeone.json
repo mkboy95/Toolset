@@ -1,4 +1,9 @@
 {
   "name": "my-tools-studio",
-  "buildCommand": ""
+  "buildCommand": "",
+  "cloudFunctions": {
+    "kv": {
+      "my_kv": "TOOLS_KV"
+    }
+  }
 }
