@@ -1,16 +1,28 @@
 const DEFAULT_DATA = {
   categories: [
     { id: "tools", name: "工具箱", icon: "📦", type: "products" },
-    { id: "prompts", name: "提示词", icon: "💡", type: "prompts" },
-    { id: "covers", name: "封面工具", icon: "🎨", type: "products" }
+    { id: "dev", name: "开发工具", icon: "⚙️", type: "products" },
+    { id: "covers", name: "封面工具", icon: "🎨", type: "products" },
+    { id: "prompts", name: "提示词", icon: "💡", type: "prompts" }
   ],
   products: [
     {
+      id: "it-tools",
+      name: "超赞IT工具箱",
+      desc: "开发者在线工具集合，包含JSON格式化、Base64编解码、正则测试、密码生成、二维码生成等100+实用工具。",
+      icon: "⚙️",
+      detail: "IT-Tools 是一个专为开发者和IT专业人员设计的在线工具集合，提供丰富实用的工具，具有优秀的用户体验。\n\n✨ 包含工具：\n- 🔐 加密解密：Base64、哈希计算、HMAC、Bcrypt、RSA密钥对生成\n- 📝 格式转换：JSON格式化/压缩、YAML转换、XML格式化、TOML转换\n- 🔍 开发测试：正则测试、JSONPath、JWT解析、Unicode转换\n- 🌐 网络工具：URL编解码、IPv4子网计算器、MAC地址查询\n- 🎨 颜色工具：颜色转换器、色阶生成器\n- 📊 数据生成：UUID生成器、密码生成器、Lorem Ipsum、二维码生成\n- 📐 数学计算：数学表达式计算器、百分比计算器、进制转换\n- 📦 编码转换：Base64文件转换、UTF-8编码检测",
+      link: "/it-tools/",
+      cta: "立即使用",
+      category: "dev",
+      toolType: "local"
+    },
+    {
       id: "mini-cover",
-      name: "Mini-Cover 封面生成器",
+      name: "超赞Mini-Cover",
       desc: "简洁的在线生成封面网站，专为博客、短视频、社交媒体等生成个性化封面。",
       icon: "🎨",
-      detail: "Mini-Cover 是一个现代化的封面生成工具，专为博客、短视频、社交媒体设计。支持多种自定义选项，让你轻松创建个性化封面图片。\n\n✨ 特性：\n- 📱 响应式设计，完美支持移动端\n- 🎨 丰富的图标库，一键选用\n- 🖼️ 自定义背景图片，支持拖拽上传\n- ✍️ 灵活的标题编辑，多种字体可选\n- 💫 水印效果调整，实时预览\n- 🎯 简洁的操作界面，快速上手\n\n🔗 项目地址：https://github.com/mkboy95/Mini-Cover",
+      detail: "Mini-Cover 是一个现代化的封面生成工具，专为博客、短视频、社交媒体设计。支持多种自定义选项，让你轻松创建个性化封面图片。\n\n✨ 特性：\n- 📱 响应式设计，完美支持移动端\n- 🎨 丰富的图标库，一键选用\n- 🖼️ 自定义背景图片，支持拖拽上传\n- ✍️ 灵活的标题编辑，多种字体可选\n- 💫 水印效果调整，实时预览\n- 🎯 简洁的操作界面，快速上手",
       link: "/mini-cover/",
       cta: "立即使用",
       category: "covers",
@@ -18,25 +30,14 @@ const DEFAULT_DATA = {
     },
     {
       id: "thiscover",
-      name: "ThisCover 封面生成器",
-      desc: "免费、漂亮的封面生成器，支持个性主题、20w+图标、23+免费字体、实时预览。",
+      name: "超赞ThisCover",
+      desc: "免费、漂亮的封面生成器，支持18+主题、20w+图标、29+免费字体、实时预览、9+主流尺寸。",
       icon: "🖼️",
-      detail: "ThisCover 是一个免费、漂亮的封面生成器，支持全生命周期功能。\n\n✨ 特性：\n- 🎨 个性主题：简洁、现代、经典、背景、手机预览等多个主题\n- 🔢 20w+ 图标库\n- 📝 23+ 免费字体\n- 👁️ 实时预览：配置即改即变，所见即所得\n- 📐 9+ 主流尺寸，横板+竖版\n- 📱 小红书、头条、知乎等多平台适配\n- 💾 PNG、JPG、WebP 多格式输出\n- 📤 一键复制",
-      link: "https://cover.202597.xyz/",
+      detail: "ThisCover 是一个免费、漂亮的封面生成器，支持全生命周期功能。\n\n✨ 特性：\n- 🎨 18+ 个性主题：简洁、现代、经典、背景、手机预览等\n- 🔢 20w+ Iconify 图标库\n- 📝 29+ 开源/免费商用字体\n- 👁️ 实时预览：配置即改即变，所见即所得\n- 📐 9+ 主流尺寸，横板+竖版\n- 📱 小红书、头条、知乎等多平台适配\n- 💾 PNG、JPG、WebP 多格式输出\n- 🌙 深色模式支持",
+      link: "/thiscover/",
       cta: "立即使用",
       category: "covers",
-      toolType: "external"
-    },
-    {
-      id: "demo",
-      name: "示例工具",
-      desc: "这是一个示例，请去后台修改。",
-      icon: "👋",
-      detail: "详细介绍内容...",
-      link: "#",
-      cta: "按钮文字",
-      category: "tools",
-      toolType: "external"
+      toolType: "local"
     }
   ],
   prompts: [{
